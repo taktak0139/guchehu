@@ -1,62 +1,66 @@
 import { useState } from "react";
-import axios from "axios";
 
 export default function App() {
-  const [input, setInput] = useState("");
-  const [output, setOutput] = useState("等待输入...");
-  const [loading, setLoading] = useState(false);
+  const [text, setText] = useState("");
+  const [result, setResult] = useState("");
 
-  const callAI = async () => {
-    if (!input) return;
-    setLoading(true);
-    setOutput("AI 生成中...");
+  const generateJSON = async () => {
+    if (!text) return;
+
+    setResult("AI生成中...");
 
     try {
-      const res = await axios.post("http://localhost:3001/ai", {
-        text: input,
+      const res = await fetch("/api/generate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ text }),
       });
 
-      try {
-        const json = JSON.parse(res.data.output);
-        setOutput(JSON.stringify(json, null, 2));
-      } catch {
-        setOutput(res.data.output);
-      }
+      const data = await res.json();
+      setResult(data.result);
     } catch (err) {
-      setOutput("请求失败：" + err.message);
+      setResult("调用失败，请检查API");
     }
-
-    setLoading(false);
   };
 
   return (
-    <div style={{ padding: 40, fontFamily: "sans-serif" }}>
+    <div style={{ padding: 40, fontFamily: "Arial" }}>
       <h1>AI JSON结构化生成引擎</h1>
 
       <textarea
-        rows="5"
-        style={{ width: "100%", fontSize: 16 }}
-        placeholder="输入内容..."
-        value={input}
-        onChange={(e) => setInput(e.target.value)}
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        placeholder="一句话介绍你的业务..."
+        style={{ width: "100%", height: 120, marginTop: 20 }}
       />
 
-      <br /><br />
+      <br />
 
-      <button onClick={callAI} disabled={loading}>
-        {loading ? "生成中..." : "生成 JSON"}
+      <button
+        onClick={generateJSON}
+        style={{
+          marginTop: 20,
+          padding: "10px 20px",
+          fontSize: 16,
+          cursor: "pointer",
+        }}
+      >
+        生成 JSON
       </button>
 
       <pre
         style={{
-          marginTop: 20,
-          background: "#111",
+          marginTop: 30,
+          background: "#000",
           color: "#0f0",
-          padding: 15,
+          padding: 20,
+          minHeight: 200,
           whiteSpace: "pre-wrap",
         }}
       >
-        {output}
+        {result}
       </pre>
     </div>
   );
