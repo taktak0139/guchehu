@@ -2,93 +2,65 @@ import express from "express";
 import path from "path";
 import { fileURLToPath } from "url";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
 const app = express();
 app.use(express.json({ limit: "1mb" }));
 
-app.post("/api/generate", async (req, res) => {
-  try {
-    const prompt = (req.body?.prompt || "").trim();
-    if (!prompt) return res.status(400).json({ error: "prompt is required" });
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) return res.status(500).json({ error: "Missing OPENAI_API_KEY" });
+const PORT = Number(process.env.PORT || 3000);
+const distDir = path.join(__dirname, "dist");
 
-    const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
-
-    const schemaPrompt = `
-你是“固车虎·微创钣喷”短视频内容生成引擎。
-只输出严格 JSON（不要代码块、不要解释、不要多余文字）。
-
-用户输入：
-${prompt}
-
-请输出 JSON，字段如下（必须全部给出）：
-{
-  "品牌": "固车虎·微创钣喷",
-  "内容类型": "知识科普/案例展示/价格解释/避坑建议/活动引流/门店介绍 之一",
-  "标题": "不超过18字",
-  "副标题": "不超过24字",
-  "核心卖点": ["数组，3-6条，短句"],
-  "适用场景": ["数组，2-5条"],
-  "风险提示": ["数组，1-3条，用中性表达，避免保证性承诺"],
-  "短视频脚本": {
-    "时长": "30-45秒",
-    "分镜": [
-      {"时间段":"0-2s","画面":"","口播":"","字幕":""},
-      {"时间段":"2-8s","画面":"","口播":"","字幕":""},
-      {"时间段":"8-20s","画面":"","口播":"","字幕":""},
-      {"时间段":"20-35s","画面":"","口播":"","字幕":""},
-      {"时间段":"35-45s","画面":"","口播":"","字幕":""}
-    ]
-  },
-  "发布四件套": {
-    "标题": "",
-    "作品描述": "",
-    "话题标签": ["#微创钣喷","#划痕补漆","#凹陷修复"],
-    "置顶评论": ""
-  }
-}
-要求：
-- 口播更适合口语表达，短句，利落
-- 不要出现“最/第一/唯一/包治/保证/百分百”等绝对化或承诺性表述
-- 适用场景与卖点要贴近：划痕补漆、凹陷修复、微创钣喷、保留原车漆/原车件、以修代换
-`;
-
-    const r = await fetch("https://api.openai.com/v1/responses", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${apiKey}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        model,
-        input: [
-          { role: "user", content: schemaPrompt }
-        ],
-        text: { format: { type: "json_object" } }
-      })
-    });
-
-    const data = await r.json();
-    if (!r.ok) return res.status(r.status).json({ error: "OpenAI failed", detail: data });
-
-    const outputText =
-      data.output_text ||
-      (data.output?.[0]?.content?.[0]?.text ?? "");
-
-    const obj = JSON.parse(outputText);
-    res.json(obj);
-  } catch (e) {
-    res.status(500).json({ error: "Server error", detail: String(e) });
-  }
+// 1) API
+app.get("/api/health", (req, res) => {
+  res.json({ ok: true });
 });
 
-// 静态托管 dist（保持你现在网页仍可打开）
-app.use(express.static(path.join(__dirname, "dist")));
-app.get("*", (req, res) => res.sendFile(path.join(__dirname, "dist", "index.html")));
+// 你前端如果打的是 /api/generate，就用这个
+app.post("/api/generate", async (req, res) => {
+  const prompt = (req.body?.prompt ?? req.body?.text ?? "").toString().trim();
+  if (!prompt) return res.status(400).json({ error: "missing prompt/text" });
 
-const PORT = Number(process.env.PORT || 8080);
-app.listen(PORT, "0.0.0.0", () => console.log("Server listening on", PORT));
+  // 先返回固定结构（确保飞书能解析）——后续再接入真实AI
+  res.json({
+    标题: "固车虎微创钣喷",
+    副标题: "划痕/凹陷局部修复",
+    原始输入: prompt,
+    内容类型: "短视频脚本",
+    核心卖点: "微创修复、减少拆装、尽量保留原漆",
+    适用场景: "小刮小蹭、轻微凹陷、局部补漆",
+    风险提示: "价格与效果以实际车况评估为准",
+    短视频脚本: "镜头1问题→镜头2方案→镜头3对比→镜头4引导私信",
+    发布四件套: "标题+文案+话题+置顶评论"
+  });
+});
+
+// 你前端如果打的是 /api，就用这个（兼容）
+app.post("/api", async (req, res) => {
+  const text = (req.body?.text ?? req.body?.prompt ?? "").toString().trim();
+  if (!text) return res.status(400).json({ error: "missing text/prompt" });
+
+  res.json({
+    标题: "固车虎微创钣喷",
+    副标题: "划痕/凹陷局部修复",
+    原始输入: text,
+    内容类型: "短视频脚本",
+    核心卖点: "微创修复、减少拆装、尽量保留原漆",
+    适用场景: "小刮小蹭、轻微凹陷、局部补漆",
+    风险提示: "价格与效果以实际车况评估为准",
+    短视频脚本: "镜头1问题→镜头2方案→镜头3对比→镜头4引导私信",
+    发布四件套: "标题+文案+话题+置顶评论"
+  });
+});
+
+// 2) 静态页面
+app.use(express.static(distDir));
+
+// 3) SPA 兜底（关键：不用 *）
+app.use((req, res) => {
+  res.sendFile(path.join(distDir, "index.html"));
+});
+
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`Server listening on ${PORT}`);
+});
