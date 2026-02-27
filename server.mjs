@@ -8,7 +8,7 @@ app.use(express.json({ limit: "1mb" }));
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const PORT = Number(process.env.PORT || 3000);
+const PORT = Number(process.env.PORT || 8080);
 const distDir = path.join(__dirname, "dist");
 
 function buildFullContent(prompt) {
